@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FireBot</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b0e13;color:#dfe6f0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #1e2634}
+h1{font-size:16px;margin:0;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:#9fb0c8}
+#pill{margin-left:auto;padding:6px 14px;border-radius:999px;font-weight:700;letter-spacing:.09em;
+      font-size:12px;background:#24303f;color:#8fa2ba;transition:background .2s,color .2s}
+#pill.fire{background:#e01b24;color:#fff;box-shadow:0 0 18px #e01b2455}
+main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;padding:16px;align-items:start}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.view{position:relative;background:#000;border:1px solid #1e2634;border-radius:10px;overflow:hidden}
+.view img{display:block;width:100%;height:auto}
+#ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.legend{position:absolute;left:10px;bottom:10px;display:flex;gap:14px;font-size:11px;
+        background:#000a;padding:5px 10px;border-radius:6px;color:#cbd5e1}
+.dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
+aside{display:flex;flex-direction:column;gap:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.card{background:#111721;border:1px solid #1e2634;border-radius:9px;padding:9px 11px}
+.card .k{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#64748b}
+.card .v{font-size:19px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:2px}
+.card .v small{font-size:11px;font-weight:400;color:#7b8ba3}
+.sec{background:#111721;border:1px solid #1e2634;border-radius:9px;padding:11px}
+.sec h2{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin:0 0 9px}
+button{background:#1b2330;color:#c7d2e0;border:1px solid #2a3648;border-radius:7px;
+       padding:7px 10px;font:inherit;font-size:12px;cursor:pointer;transition:.15s}
+button:hover{background:#243040;border-color:#3a4a63}
+button.on{background:#1668d6;border-color:#2f86ff;color:#fff}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+label.sl{display:block;margin:10px 0 0}
+label.sl span{display:flex;justify-content:space-between;font-size:11px;color:#8fa2ba;margin-bottom:3px}
+input[type=range]{width:100%;accent-color:#2f86ff}
+.note{font-size:11px;color:#5f6f86;line-height:1.5}
+#link{margin-left:10px;font-size:11px;color:#5f6f86;font-variant-numeric:tabular-nums}
+</style></head><body>
+<header><h1>FireBot</h1><span id="link">usb</span><span id="pill">CONNECTING</span></header>
+<main>
+  <div class="view">
+    <img id="stream" alt="camera">
+    <canvas id="ov"></canvas>
+    <div class="legend">
+      <span><i class="dot" style="background:#22c55e"></i>target</span>
+      <span><i class="dot" style="background:#fbbf24"></i>other</span>
+      <span><i class="dot" style="background:#b91c1c"></i>done</span>
+    </div>
+  </div>
+  <aside>
+    <div class="grid">
+      <div class="card"><div class="k">FPS</div><div class="v" id="v-fps">-</div></div>
+      <div class="card"><div class="k">Targets</div><div class="v" id="v-n">-</div></div>
+      <div class="card"><div class="k">Nearest</div><div class="v" id="v-d">-<small> cm</small></div></div>
+      <div class="card"><div class="k">Bearing</div><div class="v" id="v-err">-</div></div>
+      <div class="card"><div class="k">State</div><div class="v" id="v-st" style="font-size:15px">-</div></div>
+      <div class="card"><div class="k">Profile</div><div class="v" id="v-prof" style="font-size:15px">-</div></div>
+    </div>
+
+    <div class="sec"><h2>Flashlight</h2>
+      <div class="row"><button id="b-led">Flash off</button><button id="b-voice">Voice off</button></div>
+      <div class="note" style="margin-top:6px">White LED on GPIO4. Steady on/off only — no RGB on this module.</div>
+    </div>
+
+    <div class="sec"><h2>Profile</h2>
+      <div class="row">
+        <button data-p="both">Both</button>
+        <button data-p="candle">Candle</button>
+        <button data-p="print">Print</button>
+        <button data-p="flame">Flame</button>
+      </div>
+      <div class="note" style="margin-top:8px"><b>Both</b> = printed flames + vivid cups in one pass. Candle = squat cups. Print = tall drawings. Flame = bright fire, bans pink.</div>
+    </div>
+
+    <div class="sec"><h2>Thresholds</h2>
+      <label class="sl"><span>Saturation <b id="l-s">-</b></span>
+        <input id="s" type="range" min="0" max="255" step="1"></label>
+      <label class="sl"><span>Brightness <b id="l-v">-</b></span>
+        <input id="v" type="range" min="0" max="255" step="1"></label>
+      <label class="sl"><span>R minus B <b id="l-rb">-</b></span>
+        <input id="rb" type="range" min="-60" max="140" step="1"></label>
+      <div class="note" style="margin-top:8px">Filters are strict: a box that flickers in and out means the threshold is marginal.</div>
+    </div>
+
+    <div class="sec"><h2>Actions</h2>
+      <div class="row">
+        <button id="b-auto">Auto off</button>
+        <button id="b-sup">Suppress off</button>
+        <button id="b-reset">Reset</button>
+        <button id="b-pump">Pump</button>
+      </div>
+    </div>
+    <div class="note" id="foot">-</div>
+  </aside>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let cfg={},sent={};
+function cmd(c){fetch('/cmd?c='+encodeURIComponent(c)).catch(()=>{});}
+
+// The board's web server is single-threaded: an open MJPEG stream would block
+// every other request, including /status.json.  So pull stills instead -- each
+// fetch completes, leaving the server free to answer the status poll.
+// Voice feedback. Uses the phone/PC browser's built-in speech engine
+// (SpeechSynthesis): the board sends only the same tiny status JSON it always
+// did, so this costs the sketch literally nothing.
+let voiceOn=false, lastSt='';
+function say(t){
+  if(!voiceOn||!('speechSynthesis' in window)||!t) return;
+  const u=new SpeechSynthesisUtterance(t);
+  u.rate=1.05;
+  speechSynthesis.speak(u);
+}
+const SAY={EXTINGUISH:'Extinguishing target',COOLDOWN:'Target eliminated'};
+function sayState(st){
+  if(st===lastSt) return;
+  lastSt=st;
+  say(SAY[st]);
+}
+// Flame edge: announces whether or not auto mode is running.
+let prevFire=false;
+function sayFire(f){
+  if(f && !prevFire) say('Flame detected');
+  prevFire=!!f;
+}
+$('b-voice').onclick=()=>{
+  voiceOn=!voiceOn;
+  $('b-voice').textContent='Voice '+(voiceOn?'on':'off');
+  $('b-voice').classList.toggle('on',voiceOn);
+  if(voiceOn){ lastSt=''; say('Voice on'); }
+  else { try{speechSynthesis.cancel();}catch(e){} }
+};
+
+// The video feed runs on port 81 with its own server task on the board, so it
+// never competes with /status.json.  If the stream can't start (older build,
+// blocked port), fall back to polling stills from /snapshot.
+let streamed=false, polling=false;
+function startPolling(){
+  if(polling) return;
+  polling=true;
+  setInterval(grabFrame,250);
+}
+$('stream').onload = ()=>{ streamed=true; };
+$('stream').onerror = ()=>{ startPolling(); };
+$('stream').src = 'http://'+location.hostname+':81/stream';
+setTimeout(()=>{ if(!streamed) startPolling(); }, 3500);
+
+let grabbing=false;
+async function grabFrame(){
+  if(grabbing) return;
+  grabbing=true;
+  try{
+    const r=await fetch('/snapshot?t='+Date.now(),{cache:'no-store'});
+    if(r.ok){
+      const url=URL.createObjectURL(await r.blob());
+      const img=$('stream'), old=img.dataset.url;
+      img.onload=()=>{ if(old) URL.revokeObjectURL(old); };
+      img.dataset.url=url;
+      img.src=url;
+    }
+  }catch(e){}
+  grabbing=false;
+}
+
+// Boxes are drawn here rather than burned into the frame: the preview is the
+// sensor's own JPEG, so nothing is re-encoded and the image stays sharp.
+function overlay(d){
+  const img=$('stream'), cv=$('ov');
+  const w=img.clientWidth, h=img.clientHeight;
+  if(!w||!h) return;
+  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
+  const g=cv.getContext('2d');
+  g.clearRect(0,0,w,h);
+  const m=/(\d+)x(\d+)/.exec(d.res||'640x480');
+  const fw=m?+m[1]:640, fh=m?+m[2]:480;
+  const sx=w/fw, sy=h/fh;
+  d.blobs.forEach((b,i)=>{
+    const hot = i===d.tgt;
+    const col = b.sup? '#b91c1c' : (hot? '#22c55e' : '#fbbf24');
+    const x=(b.cx-b.w/2)*sx, y=(b.cy-b.h/2)*sy;
+    g.lineWidth = hot?2.5:1.5;
+    g.strokeStyle=col;
+    g.strokeRect(x,y,b.w*sx,b.h*sy);
+    if(hot){
+      g.fillStyle=col; g.font='11px system-ui';
+      g.fillText(b.d+'cm', x+2, Math.max(11,y-4));
+    }
+  });
+}
+async function tick(){
+  try{
+    const r=await fetch('/status.json',{cache:'no-store'});
+    const d=await r.json();
+    const p=$('pill');
+    p.textContent=d.fire?'FIRE DETECTED':'NO TARGET';
+    p.className=d.fire?'fire':'';
+    $('v-fps').textContent=d.fps.toFixed(1);
+    $('v-n').textContent=d.n;
+    $('v-d').textContent=d.blobs.length?d.blobs[0].d+' cm':'-';
+    $('v-err').textContent=d.blobs.length?(d.blobs[0].err>0?'+':'')+d.blobs[0].err:'-';
+    $('v-st').textContent=d.st;
+    sayState(d.st);sayFire(d.fire);
+    $('v-prof').textContent=d.profile;
+    document.querySelectorAll('[data-p]').forEach(b=>b.classList.toggle('on',b.dataset.p===d.profile));
+    $('b-auto').textContent='Auto '+(d.auto?'on':'off');
+    $('b-auto').classList.toggle('on',!!d.auto);
+    $('b-led').textContent='Flash '+(d.led?'on':'off');
+    $('b-led').classList.toggle('on',!!d.led);
+    $('b-sup').textContent='Suppress '+(d.suppress?'on':'off');
+    $('b-sup').classList.toggle('on',!!d.suppress);
+    ['s','v','rb'].forEach(k=>{if(document.activeElement!==$(k))$(k).value=d.cfg[k];});
+    cfg=d.cfg;
+    $('l-s').textContent=d.cfg.s;$('l-v').textContent=d.cfg.v;$('l-rb').textContent=d.cfg.rb;
+    $('foot').textContent='uptime '+d.uptime+'s  free heap '+(d.free/1024).toFixed(0)+' KB  '+(d.auto?'motors+pump live':'detection only, motors/pump inhibited')+(d.t?'   |   grab '+d.t.cap+'ms  detect '+d.t.det+'ms  encode '+d.t.enc+'ms':'');
+    $('link').textContent = d.link ? d.link : 'usb';
+    overlay(d);
+  }catch(e){$('pill').textContent='OFFLINE';$('pill').className='';}
+}
+setInterval(tick,250);tick();
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>cmd('profile='+b.dataset.p));
+$('b-auto').onclick=()=>cmd('auto='+($('b-auto').classList.contains('on')?0:1));
+$('b-led').onclick=()=>cmd('led='+($('b-led').classList.contains('on')?0:1));
+$('b-sup').onclick=()=>cmd('suppress='+($('b-sup').classList.contains('on')?0:1));
+$('b-reset').onclick=()=>cmd('reset');
+$('b-pump').onclick=()=>{cmd('pump=1');setTimeout(()=>cmd('pump=0'),1200);};
+$('stream').onerror=()=>{setTimeout(()=>{$('stream').src='/stream?t='+Date.now();},1500);};
+let deb={};
+['s','v','rb'].forEach(k=>{
+  $(k).oninput=()=>{
+    $('l-'+k).textContent=$(k).value;
+    clearTimeout(deb[k]);
+    deb[k]=setTimeout(()=>cmd(k+'='+$(k).value),180);
+  };
+});
+</script></body></html>
